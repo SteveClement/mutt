@@ -1,6 +1,6 @@
 
 /*
- * Copyright (C) 1996-2002,2010,2013 Michael R. Elkins <me@mutt.org>
+ * Copyright (C) 1996-2002, 2010 Michael R. Elkins <me@mutt.org>
  * Copyright (C) 2004 g10 Code GmbH
  * 
  *     This program is free software; you can redistribute it and/or modify
@@ -97,6 +97,9 @@
 #define M_TOKEN_PATTERN		(1<<4)	/* !)|~ are terms (for patterns) */
 #define M_TOKEN_COMMENT		(1<<5)	/* don't reap comments */
 #define M_TOKEN_SEMICOLON	(1<<6)	/* don't treat ; as special */
+
+/* flags for km_dokey() */
+#define M_KM_UNBUFFERED 1 /* don't read from the key buffer */
 
 typedef struct
 {
@@ -296,11 +299,6 @@ enum
 #define SENDKEY		(1<<7)
 #define SENDRESEND	(1<<8)
 #define SENDPOSTPONEDFCC	(1<<9) /* used by mutt_get_postponed() to signal that the x-mutt-fcc header field was present */
-#define SENDNOFREEHEADER	(1<<10)   /* Used by the -E flag */
-#define SENDDRAFTFILE		(1<<11)   /* Used by the -H flag */
-
-/* flags for mutt_compose_menu() */
-#define M_COMPOSE_NOFREEHEADER (1<<0)
 
 /* flags to _mutt_select_file() */
 #define M_SEL_BUFFY	(1<<0)
@@ -414,12 +412,9 @@ enum
   OPTPRINTSPLIT,
   OPTPROMPTAFTER,
   OPTREADONLY,
-  OPTREFLOWSPACEQUOTES,
   OPTREFLOWTEXT,
   OPTREPLYSELF,
   OPTRESOLVE,
-  OPTRESUMEDRAFTFILES,
-  OPTRESUMEEDITEDDRAFTFILES,
   OPTREVALIAS,
   OPTREVNAME,
   OPTREVREAL,
@@ -446,8 +441,7 @@ enum
   OPTUSEFROM,
   OPTUSEGPGAGENT,
 #ifdef HAVE_LIBIDN
-  OPTIDNDECODE,
-  OPTIDNENCODE,
+  OPTUSEIDN,
 #endif
 #ifdef HAVE_GETADDRINFO
   OPTUSEIPV6,
@@ -519,7 +513,7 @@ enum
   OPTREDRAWTREE,	/* (pseudo) redraw the thread tree */
   OPTPGPCHECKTRUST,	/* (pseudo) used by pgp_select_key () */
   OPTDONTHANDLEPGPKEYS,	/* (pseudo) used to extract PGP keys */
-  OPTIGNOREMACROEVENTS, /* (pseudo) don't process macro/push/exec events while set */
+  OPTUNBUFFEREDINPUT,   /* (pseudo) don't use key buffer */
 
   OPTMAX
 };
