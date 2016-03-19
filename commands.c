@@ -682,6 +682,7 @@ static void set_copy_flags (HEADER *hdr, int decode, int decrypt, int *cmflags, 
       *cmflags = M_CM_DECODE_SMIME;
     }
   }
+  mutt_set_flag (Context, h, M_APPENDED, 1);
 
   if (decode)
   {
