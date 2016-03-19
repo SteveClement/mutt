@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2001-2002 Oliver Ehli <elmy@acm.org>
+ * Copyright (C) 2001,2002 Oliver Ehli <elmy@acm.org>
  * Copyright (C) 2004 g10 Code GmbH
  *
  *     This program is free software; you can redistribute it and/or modify
@@ -22,18 +22,9 @@
 
 #include "mutt_crypt.h"
 
-typedef struct smime_key {
-  char *email;
-  char *hash;
-  char *label;
-  char *issuer;
-  char trust; /* i=Invalid r=revoked e=expired u=unverified v=verified t=trusted */
-  int flags;
-  struct smime_key *next;
-} smime_key_t;
 
 
-void smime_free_key (smime_key_t **);
+
 
 void smime_void_passphrase (void);
 int smime_valid_passphrase (void);
@@ -57,9 +48,9 @@ char* smime_get_field_from_db (char *, char *, short, short);
 
 void  smime_getkeys (ENVELOPE *);
 
-smime_key_t *smime_ask_for_key(char *, short, short);
+char* smime_ask_for_key (char *, char *, short);
 
-char *smime_findKeys (ADDRESS *adrlist, int oppenc_mode);
+char *smime_findKeys (ADDRESS *to, ADDRESS *cc, ADDRESS *bcc);
 
 void  smime_invoke_import (char *, char *);
 

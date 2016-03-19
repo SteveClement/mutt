@@ -40,7 +40,8 @@ subdir = intl
 
 INSTALL = @INSTALL@
 INSTALL_DATA = @INSTALL_DATA@
-MKDIR_P = @MKDIR_P@
+MKINSTALLDIRS = @MKINSTALLDIRS@
+mkinstalldirs = $(SHELL) `case "$(MKINSTALLDIRS)" in /*) echo "$(MKINSTALLDIRS)" ;; *) echo "$(top_builddir)/$(MKINSTALLDIRS)" ;; esac`
 
 l = @INTL_LIBTOOL_SUFFIX_PREFIX@
 
@@ -144,7 +145,7 @@ install: install-exec install-data
 install-exec: all
 	if test "$(PACKAGE)" = "gettext" \
 	   && test '@INTLOBJS@' = '$(GETTOBJS)'; then \
-	  $(MKDIR_P) $(DESTDIR)$(libdir) $(DESTDIR)$(includedir); \
+	  $(mkinstalldirs) $(DESTDIR)$(libdir) $(DESTDIR)$(includedir); \
 	  $(INSTALL_DATA) libintl.h $(DESTDIR)$(includedir)/libintl.h; \
 	  $(LIBTOOL) --mode=install \
 	    $(INSTALL_DATA) libintl.$la $(DESTDIR)$(libdir)/libintl.$la; \
@@ -152,7 +153,7 @@ install-exec: all
 	  : ; \
 	fi
 	if test '@USE_INCLUDED_LIBINTL@' = yes; then \
-	  $(MKDIR_P) $(DESTDIR)$(libdir); \
+	  $(mkinstalldirs) $(DESTDIR)$(libdir); \
 	  temp=$(DESTDIR)$(libdir)/t-charset.alias; \
 	  dest=$(DESTDIR)$(libdir)/charset.alias; \
 	  if test -f $(DESTDIR)$(libdir)/charset.alias; then \
@@ -168,7 +169,7 @@ install-exec: all
 	      rm -f $$temp; \
 	    fi; \
 	  fi; \
-	  $(MKDIR_P) $(DESTDIR)$(localedir); \
+	  $(mkinstalldirs) $(DESTDIR)$(localedir); \
 	  test -f $(DESTDIR)$(localedir)/locale.alias \
 	    && orig=$(DESTDIR)$(localedir)/locale.alias \
 	    || orig=$(srcdir)/locale.alias; \
@@ -182,7 +183,7 @@ install-exec: all
 	fi
 install-data: all
 	if test "$(PACKAGE)" = "gettext"; then \
-	  $(MKDIR_P) $(DESTDIR)$(gettextsrcdir); \
+	  $(mkinstalldirs) $(DESTDIR)$(gettextsrcdir); \
 	  $(INSTALL_DATA) VERSION $(DESTDIR)$(gettextsrcdir)/VERSION; \
 	  $(INSTALL_DATA) ChangeLog.inst $(DESTDIR)$(gettextsrcdir)/ChangeLog; \
 	  dists="COPYING.LIB-2 COPYING.LIB-2.1 $(DISTFILES.common)"; \

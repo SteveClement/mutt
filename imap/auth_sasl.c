@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2000-2006,2012 Brendan Cully <brendan@kublai.com>
+ * Copyright (C) 2000-6,2012 Brendan Cully <brendan@kublai.com>
  * 
  *     This program is free software; you can redistribute it and/or modify
  *     it under the terms of the GNU General Public License as published by
@@ -36,8 +36,7 @@ imap_auth_res_t imap_auth_sasl (IMAP_DATA* idata, const char* method)
   sasl_conn_t* saslconn;
   sasl_interact_t* interaction = NULL;
   int rc, irc;
-  char *buf = NULL;
-  size_t bufsize = 0;
+  char buf[HUGE_STRING];
   const char* mech;
   const char *pc = NULL;
   unsigned int len, olen;
@@ -71,7 +70,7 @@ imap_auth_res_t imap_auth_sasl (IMAP_DATA* idata, const char* method)
       rc = sasl_client_start (saslconn, "AUTH=ANONYMOUS", NULL, &pc, &olen, 
                               &mech);
   } else if (!ascii_strcasecmp ("login", method) &&
-	!strstr (NONULL (idata->capstr), "AUTH=LOGIN"))
+	!strstr (idata->capstr, "AUTH=LOGIN"))
     /* do not use SASL login for regular IMAP login (#3556) */
     return IMAP_AUTH_UNAVAIL;
   
@@ -100,15 +99,12 @@ imap_auth_res_t imap_auth_sasl (IMAP_DATA* idata, const char* method)
 
   mutt_message (_("Authenticating (%s)..."), mech);
 
-  bufsize = ((olen * 2) > LONG_STRING) ? (olen * 2) : LONG_STRING;
-  buf = safe_malloc (bufsize);
-
-  snprintf (buf, bufsize, "AUTHENTICATE %s", mech);
+  snprintf (buf, sizeof (buf), "AUTHENTICATE %s", mech);
   if (mutt_bit_isset (idata->capabilities, SASL_IR) && client_start)
   {
     len = mutt_strlen (buf);
     buf[len++] = ' ';
-    if (sasl_encode64 (pc, olen, buf + len, bufsize - len, &olen) != SASL_OK)
+    if (sasl_encode64 (pc, olen, buf + len, sizeof (buf) - len, &olen) != SASL_OK)
     {
       dprint (1, (debugfile, "imap_auth_sasl: error base64-encoding client response.\n"));
       goto bail;
@@ -136,21 +132,11 @@ imap_auth_res_t imap_auth_sasl (IMAP_DATA* idata, const char* method)
 	buf[0] = '\0';
 	len = 0;
       }
-      else
+      else if (sasl_decode64 (idata->buf+2, strlen (idata->buf+2), buf,
+			      LONG_STRING-1, &len) != SASL_OK)
       {
-        len = strlen (idata->buf + 2);
-        if (len > bufsize)
-        {
-          bufsize = len;
-          safe_realloc (&buf, bufsize);
-        }
-        /* For sasl_decode64, the fourth parameter, outmax, doesn't
-         * include space for the trailing null */
-        if (sasl_decode64 (idata->buf+2, len, buf, bufsize - 1, &len) != SASL_OK)
-        {
-          dprint (1, (debugfile, "imap_auth_sasl: error base64-decoding server response.\n"));
-          goto bail;
-        }
+	dprint (1, (debugfile, "imap_auth_sasl: error base64-decoding server response.\n"));
+	goto bail;
       }
     }
 
@@ -173,12 +159,7 @@ imap_auth_res_t imap_auth_sasl (IMAP_DATA* idata, const char* method)
     /* send out response, or line break if none needed */
     if (olen)
     {
-      if ((olen * 2) > bufsize)
-      {
-        bufsize = olen * 2;
-        safe_realloc (&buf, bufsize);
-      }
-      if (sasl_encode64 (pc, olen, buf, bufsize, &olen) != SASL_OK)
+      if (sasl_encode64 (pc, olen, buf, sizeof (buf), &olen) != SASL_OK)
       {
 	dprint (1, (debugfile, "imap_auth_sasl: error base64-encoding client response.\n"));
 	goto bail;
@@ -187,7 +168,7 @@ imap_auth_res_t imap_auth_sasl (IMAP_DATA* idata, const char* method)
     
     if (irc == IMAP_CMD_RESPOND)
     {
-      strfcpy (buf + olen, "\r\n", bufsize - olen);
+      strfcpy (buf + olen, "\r\n", sizeof (buf) - olen);
       mutt_socket_write (idata->conn, buf);
     }
 
@@ -211,13 +192,11 @@ imap_auth_res_t imap_auth_sasl (IMAP_DATA* idata, const char* method)
   if (imap_code (idata->buf))
   {
     mutt_sasl_setup_conn (idata->conn, saslconn);
-    FREE (&buf);
     return IMAP_AUTH_SUCCESS;
   }
 
  bail:
   sasl_dispose (&saslconn);
-  FREE (&buf);
 
   if (method)
   {

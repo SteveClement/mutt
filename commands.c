@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1996-2000 Michael R. Elkins <me@mutt.org>
- * Copyright (C) 2000-2004,2006 Thomas Roessler <roessler@does-not-exist.org>
+ * Copyright (C) 2000-4,2006 Thomas Roessler <roessler@does-not-exist.org>
  * 
  *     This program is free software; you can redistribute it and/or modify
  *     it under the terms of the GNU General Public License as published by
@@ -228,7 +228,7 @@ int mutt_display_message (HEADER *cur)
       mutt_set_flag (Context, cur, M_READ, 1);
     if (r != -1 && option (OPTPROMPTAFTER))
     {
-      mutt_unget_event (mutt_any_key_to_continue _("Command: "), 0);
+      mutt_ungetch (mutt_any_key_to_continue _("Command: "), 0);
       rc = km_dokey (MENU_PAGER);
     }
     else
@@ -253,7 +253,7 @@ void ci_bounce_message (HEADER *h, int *redraw)
   {
     if (!h->env->from)
     {
-      mutt_error _("Warning: message contains no From: header");
+      mutt_error _("Warning: message has no From: header");
       mutt_sleep (2);
     }
   }
@@ -263,7 +263,7 @@ void ci_bounce_message (HEADER *h, int *redraw)
     {
       if (Context->hdrs[rc]->tagged && !Context->hdrs[rc]->env->from)
       {
-	mutt_error _("Warning: message contains no From: header");
+	mutt_error ("Warning: message has no From: header");
 	mutt_sleep (2);
 	break;
       }
@@ -286,7 +286,7 @@ void ci_bounce_message (HEADER *h, int *redraw)
   if (rc || !buf[0])
     return;
 
-  if (!(adr = mutt_parse_adrlist (adr, buf)))
+  if (!(adr = rfc822_parse_adrlist (adr, buf)))
   {
     mutt_error _("Error parsing address!");
     return;
@@ -294,7 +294,7 @@ void ci_bounce_message (HEADER *h, int *redraw)
 
   adr = mutt_expand_aliases (adr);
 
-  if (mutt_addrlist_to_intl (adr, &err) < 0)
+  if (mutt_addrlist_to_idna (adr, &err) < 0)
   {
     mutt_error (_("Bad IDN: '%s'"), err);
     FREE (&err);

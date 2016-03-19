@@ -1,7 +1,7 @@
 /*
- * Copyright (C) 1996-1998,2010,2012-2013 Michael R. Elkins <me@mutt.org>
- * Copyright (C) 1996-1999 Brandon Long <blong@fiction.net>
- * Copyright (C) 1999-2009,2012 Brendan Cully <brendan@kublai.com>
+ * Copyright (C) 1996-8 Michael R. Elkins <me@mutt.org>
+ * Copyright (C) 1996-9 Brandon Long <blong@fiction.net>
+ * Copyright (C) 1999-2009 Brendan Cully <brendan@kublai.com>
  *
  *     This program is free software; you can redistribute it and/or modify
  *     it under the terms of the GNU General Public License as published by
@@ -591,7 +591,7 @@ void imap_make_date (char *buf, time_t timestamp)
   snprintf (buf, IMAP_DATELEN, "%02d-%s-%d %02d:%02d:%02d %+03d%02d",
       tm->tm_mday, Months[tm->tm_mon], tm->tm_year + 1900,
       tm->tm_hour, tm->tm_min, tm->tm_sec,
-      (int) tz / 60, (int) abs ((int) tz) % 60);
+      (int) tz / 60, (int) abs (tz) % 60);
 }
 
 /* imap_qualify_path: make an absolute IMAP folder target, given IMAP_MBOX
@@ -673,24 +673,23 @@ void imap_unquote_string (char *s)
   *d = '\0';
 }
 
-
 /*
  * Quoting and UTF-7 conversion
  */
 
-void imap_munge_mbox_name (IMAP_DATA *idata, char *dest, size_t dlen, const char *src)
+void imap_munge_mbox_name (char *dest, size_t dlen, const char *src)
 {
   char *buf;
 
   buf = safe_strdup (src);
-  imap_utf_encode (idata, &buf);
+  imap_utf7_encode (&buf);
 
   imap_quote_string (dest, dlen, buf);
 
   FREE (&buf);
 }
 
-void imap_unmunge_mbox_name (IMAP_DATA *idata, char *s)
+void imap_unmunge_mbox_name (char *s)
 {
   char *buf;
 
@@ -699,7 +698,7 @@ void imap_unmunge_mbox_name (IMAP_DATA *idata, char *s)
   buf = safe_strdup (s);
   if (buf)
   {
-    imap_utf_decode (idata, &buf);
+    imap_utf7_decode (&buf);
     strncpy (s, buf, strlen (s));
   }
 

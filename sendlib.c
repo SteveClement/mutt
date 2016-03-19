@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1996-2002,2009-2012 Michael R. Elkins <me@mutt.org>
+ * Copyright (C) 1996-2002 Michael R. Elkins <me@mutt.org>
  *
  *     This program is free software; you can redistribute it and/or modify
  *     it under the terms of the GNU General Public License as published by
@@ -1486,7 +1486,7 @@ char *mutt_make_date (char *s, size_t len)
   snprintf (s, len,  "Date: %s, %d %s %d %02d:%02d:%02d %+03d%02d\n",
 	    Weekdays[l->tm_wday], l->tm_mday, Months[l->tm_mon],
 	    l->tm_year + 1900, l->tm_hour, l->tm_min, l->tm_sec,
-	    (int) tz / 60, (int) abs ((int) tz) % 60);
+	    (int) tz / 60, (int) abs (tz) % 60);
   return (s);
 }
 
@@ -1728,7 +1728,7 @@ static int fold_one_header (FILE *fp, const char *tag, const char *value,
 
   /* if we have printed something but didn't \n-terminate it, do it
    * except the last word we printed ended in \n already */
-  if (col && (l == 0 || buf[l - 1] != '\n'))
+  if (col && buf[l - 1] != '\n')
     if (putc ('\n', fp) == EOF)
       return -1;
 
@@ -1814,14 +1814,7 @@ static int write_one_header (FILE *fp, int pfxw, int max, int wraplen,
     {
       tagbuf = mutt_substrdup (start, t);
       /* skip over the colon separating the header field name and value */
-      ++t;
-
-      /* skip over any leading whitespace (WSP, as defined in RFC5322)
-       * NOTE: skip_email_wsp() does the wrong thing here.
-       *       See tickets 3609 and 3716. */
-      while (*t == ' ' || *t == '\t')
-        t++;
-
+      t = skip_email_wsp(t + 1);
       valbuf = mutt_substrdup (t, end);
     }
     dprint(4,(debugfile,"mwoh: buf[%s%s] too long, "
@@ -2603,7 +2596,7 @@ int mutt_bounce_message (FILE *fp, HEADER *h, ADDRESS *to)
     rfc822_qualify (from, fqdn);
 
   rfc2047_encode_adrlist (from, "Resent-From");
-  if (mutt_addrlist_to_intl (from, &err))
+  if (mutt_addrlist_to_idna (from, &err))
   {
     mutt_error (_("Bad IDN %s while preparing resent-from."),
 		err);
@@ -2696,7 +2689,6 @@ int mutt_write_fcc (const char *path, HEADER *hdr, const char *msgid, int post, 
   int r, need_buffy_cleanup = 0;
   struct stat st;
   char buf[SHORT_STRING];
-  int onm_flags;
 
   if (post)
     set_noconv_flags (hdr->content, 1);
@@ -2726,10 +2718,7 @@ int mutt_write_fcc (const char *path, HEADER *hdr, const char *msgid, int post, 
   }
 
   hdr->read = !post; /* make sure to put it in the `cur' directory (maildir) */
-  onm_flags = M_ADD_FROM;
-  if (post)
-    onm_flags |= M_SET_DRAFT;
-  if ((msg = mx_open_new_message (&f, hdr, onm_flags)) == NULL)
+  if ((msg = mx_open_new_message (&f, hdr, M_ADD_FROM)) == NULL)
   {
     mx_close_mailbox (&f, NULL);
     return (-1);
@@ -2770,8 +2759,6 @@ int mutt_write_fcc (const char *path, HEADER *hdr, const char *msgid, int post, 
     fputs ("X-Mutt-PGP: ", msg->fp);
     if (hdr->security & ENCRYPT)
       fputc ('E', msg->fp);
-    if (hdr->security & OPPENCRYPT)
-      fputc ('O', msg->fp);
     if (hdr->security & SIGN)
     {
       fputc ('S', msg->fp);
@@ -2793,8 +2780,6 @@ int mutt_write_fcc (const char *path, HEADER *hdr, const char *msgid, int post, 
 	if (SmimeCryptAlg && *SmimeCryptAlg)
 	    fprintf (msg->fp, "C<%s>", SmimeCryptAlg);
     }
-    if (hdr->security & OPPENCRYPT)
-      fputc ('O', msg->fp);
     if (hdr->security & SIGN) {
 	fputc ('S', msg->fp);
 	if (SmimeDefaultKey && *SmimeDefaultKey)

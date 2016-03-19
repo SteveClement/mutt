@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1996-2002,2010 Michael R. Elkins <me@mutt.org>
+ * Copyright (C) 1996-2002, 2010 Michael R. Elkins <me@mutt.org>
  * 
  *     This program is free software; you can redistribute it and/or modify
  *     it under the terms of the GNU General Public License as published by
@@ -108,7 +108,6 @@ WHERE char *PopUser INITVAL (NULL);
 #endif
 WHERE char *PostIndentString;
 WHERE char *Postponed;
-WHERE char *PostponeEncryptAs;
 WHERE char *Prefix;
 WHERE char *PrintCmd;
 WHERE char *QueryCmd;
@@ -131,7 +130,6 @@ WHERE char *SpamSep;
 WHERE char *SslCertFile INITVAL (NULL);
 WHERE char *SslClientCert INITVAL (NULL);
 WHERE char *SslEntropyFile INITVAL (NULL);
-WHERE char *SslCiphers INITVAL (NULL);
 #ifdef USE_SSL_GNUTLS
 WHERE short SslDHPrimeBits;
 WHERE char *SslCACertFile INITVAL (NULL);
@@ -141,9 +139,6 @@ WHERE char *StChars;
 WHERE char *Status;
 WHERE char *Tempdir;
 WHERE char *Tochars;
-WHERE char *TSStatusFormat;
-WHERE char *TSIconFormat;
-WHERE short TSSupported;
 WHERE char *Username;
 WHERE char *Visual;
 
@@ -164,7 +159,6 @@ WHERE LIST *InlineAllow INITVAL(0);
 WHERE LIST *InlineExclude INITVAL(0);
 WHERE LIST *HeaderOrderList INITVAL(0);
 WHERE LIST *Ignore INITVAL(0);
-WHERE LIST *MailtoAllow INITVAL(0);
 WHERE LIST *MimeLookupList INITVAL(0);
 WHERE LIST *UnIgnore INITVAL(0);
 
@@ -231,7 +225,6 @@ WHERE LIST *UserHeader INITVAL (0);
 
 /*-- formerly in pgp.h --*/
 WHERE REGEXP PgpGoodSign;
-WHERE REGEXP PgpDecryptionOkay;
 WHERE char *PgpSignAs;
 WHERE short PgpTimeout;
 WHERE char *PgpEntryFormat;
@@ -251,6 +244,7 @@ WHERE char *PgpGetkeysCommand;
 
 /*-- formerly in smime.h --*/
 WHERE char *SmimeDefaultKey;
+WHERE char *SmimeCryptAlg;
 WHERE short SmimeTimeout;
 WHERE char *SmimeCertificates;
 WHERE char *SmimeKeys;
@@ -260,7 +254,6 @@ WHERE char *SmimeVerifyCommand;
 WHERE char *SmimeVerifyOpaqueCommand;
 WHERE char *SmimeDecryptCommand;
 WHERE char *SmimeSignCommand;
-WHERE char *SmimeDigestAlg;
 WHERE char *SmimeSignOpaqueCommand;
 WHERE char *SmimeEncryptCommand;
 WHERE char *SmimeGetSignerCertCommand;

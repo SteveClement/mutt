@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 1996-2000,2007,2011,2013 Michael R. Elkins <me@mutt.org>
- * Copyright (C) 2000-2001 Edmund Grimley Evans <edmundo@rano.org>
+ * Copyright (C) 1996-2000,2007 Michael R. Elkins <me@mutt.org>
+ * Copyright (C) 2000-1 Edmund Grimley Evans <edmundo@rano.org>
  * 
  *     This program is free software; you can redistribute it and/or modify
  *     it under the terms of the GNU General Public License as published by
@@ -166,32 +166,24 @@ static void replace_part (ENTER_STATE *state, size_t from, char *buf)
 {
   /* Save the suffix */
   size_t savelen = state->lastchar - state->curpos;
-  wchar_t *savebuf = NULL;
-
-  if (savelen)
-  {
-    savebuf = safe_calloc (savelen, sizeof (wchar_t));
-    memcpy (savebuf, state->wbuf + state->curpos, savelen * sizeof (wchar_t));
-  }
+  wchar_t *savebuf = safe_calloc (savelen, sizeof (wchar_t));
+  memcpy (savebuf, state->wbuf + state->curpos, savelen * sizeof (wchar_t));
 
   /* Convert to wide characters */
   state->curpos = my_mbstowcs (&state->wbuf, &state->wbuflen, from, buf);
 
-  if (savelen)
+  /* Make space for suffix */
+  if (state->curpos + savelen > state->wbuflen)
   {
-    /* Make space for suffix */
-    if (state->curpos + savelen > state->wbuflen)
-    {
-      state->wbuflen = state->curpos + savelen;
-      safe_realloc (&state->wbuf, state->wbuflen * sizeof (wchar_t));
-    }
-
-    /* Restore suffix */
-    memcpy (state->wbuf + state->curpos, savebuf, savelen * sizeof (wchar_t));
-    FREE (&savebuf);
+    state->wbuflen = state->curpos + savelen;
+    safe_realloc (&state->wbuf, state->wbuflen * sizeof (wchar_t));
   }
 
+  /* Restore suffix */
+  memcpy (state->wbuf + state->curpos, savebuf, savelen * sizeof (wchar_t));
   state->lastchar = state->curpos + savelen;
+
+  FREE (&savebuf);
 }
 
 /*
@@ -310,22 +302,12 @@ int _mutt_enter_string (char *buf, size_t buflen, int y, int x,
       {
 	case OP_EDITOR_HISTORY_UP:
 	  state->curpos = state->lastchar;
-	  if (mutt_history_at_scratch (hclass))
-	  {
-	    my_wcstombs (buf, buflen, state->wbuf, state->curpos);
-	    mutt_history_save_scratch (hclass, buf);
-	  }
 	  replace_part (state, 0, mutt_history_prev (hclass));
 	  redraw = M_REDRAW_INIT;
 	  break;
 
 	case OP_EDITOR_HISTORY_DOWN:
 	  state->curpos = state->lastchar;
-	  if (mutt_history_at_scratch (hclass))
-	  {
-	    my_wcstombs (buf, buflen, state->wbuf, state->curpos);
-	    mutt_history_save_scratch (hclass, buf);
-	  }
 	  replace_part (state, 0, mutt_history_next (hclass));
 	  redraw = M_REDRAW_INIT;
 	  break;
@@ -750,7 +732,6 @@ self_insert:
   
   bye:
   
-  mutt_reset_history_state (hclass);
   FREE (&tempbuf);
   return rv;
 }

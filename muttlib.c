@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1996-2000,2007,2010,2013 Michael R. Elkins <me@mutt.org>
+ * Copyright (C) 1996-2000,2007 Michael R. Elkins <me@mutt.org>
  * Copyright (C) 1999-2008 Thomas Roessler <roessler@does-not-exist.org>
  * 
  *     This program is free software; you can redistribute it and/or modify
@@ -64,28 +64,36 @@ BODY *mutt_new_body (void)
  */
 void mutt_adv_mktemp (char *s, size_t l)
 {
-  char prefix[_POSIX_PATH_MAX];
-  char *suffix;
+  char buf[_POSIX_PATH_MAX];
+  char tmp[_POSIX_PATH_MAX];
+  char *period;
+  size_t sl;
   struct stat sb;
-
+  
+  strfcpy (buf, NONULL (Tempdir), sizeof (buf));
+  mutt_expand_path (buf, sizeof (buf));
   if (s[0] == '\0')
   {
-    mutt_mktemp (s, l);
+    snprintf (s, l, "%s/muttXXXXXX", buf);
+    mktemp (s);
   }
   else
   {
-    strfcpy (prefix, s, sizeof (prefix));
-    mutt_sanitize_filename (prefix, 1);
-    snprintf (s, l, "%s/%s", NONULL (Tempdir), prefix);
+    strfcpy (tmp, s, sizeof (tmp));
+    mutt_sanitize_filename (tmp, 1);
+    snprintf (s, l, "%s/%s", buf, tmp);
     if (lstat (s, &sb) == -1 && errno == ENOENT)
       return;
-
-    if ((suffix = strrchr (prefix, '.')) != NULL)
+    if ((period = strrchr (tmp, '.')) != NULL)
+      *period = 0;
+    snprintf (s, l, "%s/%s.XXXXXX", buf, tmp);
+    mktemp (s);
+    if (period != NULL)
     {
-      *suffix = 0;
-      ++suffix;
+      *period = '.';
+      sl = mutt_strlen(s);
+      strfcpy(s + sl, period, l - sl);
     }
-    mutt_mktemp_pfx_sfx (s, l, prefix, suffix);
   }
 }
 
@@ -771,13 +779,10 @@ void mutt_merge_envelopes(ENVELOPE* base, ENVELOPE** extra)
   mutt_free_envelope(extra);
 }
 
-void _mutt_mktemp (char *s, size_t slen, const char *prefix, const char *suffix,
-                   const char *src, int line)
+void _mutt_mktemp (char *s, size_t slen, const char *src, int line)
 {
-  size_t n = snprintf (s, slen, "%s/%s-%s-%d-%d-%ld%ld%s%s",
-      NONULL (Tempdir), NONULL (prefix), NONULL (Hostname),
-      (int) getuid (), (int) getpid (), random (), random (),
-      suffix ? "." : "", NONULL (suffix));
+  size_t n = snprintf (s, slen, "%s/mutt-%s-%d-%d-%ld%ld", NONULL (Tempdir), NONULL (Hostname),
+      (int) getuid (), (int) getpid (), random (), random ());
   if (n >= slen)
     dprint (1, (debugfile, "%s:%d: ERROR: insufficient buffer space to hold temporary filename! slen=%zu but need %zu\n",
 	    src, line, slen, n));
@@ -968,9 +973,6 @@ int mutt_check_overwrite (const char *attname, const char *path,
     if (directory)
     {
       switch (mutt_multi_choice
-      /* L10N:
-         Means "The path you specified as the destination file is a directory."
-         See the msgid "Save to file: " (alias.c, recvattach.c) */
 	      (_("File is a directory, save under it? [(y)es, (n)o, (a)ll]"), _("yna")))
       {
 	case 3:		/* all */
@@ -987,9 +989,6 @@ int mutt_check_overwrite (const char *attname, const char *path,
 	  return 1;
       }
     }
-    /* L10N:
-       Means "The path you specified as the destination file is a directory."
-       See the msgid "Save to file: " (alias.c, recvattach.c) */
     else if ((rc = mutt_yesorno (_("File is a directory, save under it?"), M_YES)) != M_YES)
       return (rc == M_NO) ? 1 : -1;
 

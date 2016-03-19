@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1996-2000,2002,2010,2012-2013 Michael R. Elkins <me@mutt.org>
+ * Copyright (C) 1996-2000,2002 Michael R. Elkins <me@mutt.org>
  *
  *     This program is free software; you can redistribute it and/or modify
  *     it under the terms of the GNU General Public License as published by
@@ -93,8 +93,7 @@ static const char *No_visible = N_("No visible messages.");
 #define CHECK_ACL(aclbit,action) \
 		if (!mutt_bit_isset(Context->rights,aclbit)) { \
 			mutt_flushinp(); \
-        /* L10N: %s is one of the CHECK_ACL entries below. */ \
-			mutt_error (_("%s: Operation not permitted by ACL"), action); \
+			mutt_error (_("Cannot %s: Operation not permitted by ACL"), action); \
 			break; \
 		}
 
@@ -109,82 +108,7 @@ static const char *No_visible = N_("No visible messages.");
 #define OLDHDR Context->hdrs[Context->v2r[menu->oldcurrent]]
 #define UNREAD(h) mutt_thread_contains_unread (Context, h)
 
-/* de facto standard escapes for tsl/fsl */
-static char *tsl = "\033]0;";
-static char *fsl = "\007";
-
-/* terminal status capability check. terminfo must have been initialized. */
-short mutt_ts_capability(void)
-{
-  char *term = getenv("TERM");
-  char *tcaps;
-  int tcapi;
-  char **termp;
-  char *known[] = {
-    "color-xterm",
-    "cygwin",
-    "eterm",
-    "kterm",
-    "nxterm",
-    "putty",
-    "rxvt",
-    "screen",
-    "xterm",
-    NULL
-  };
-
-  /* If tsl is set, then terminfo says that status lines work. */
-  tcaps = tigetstr("tsl");
-  if (tcaps && tcaps != (char *)-1 && *tcaps)
-  {
-    /* update the static defns of tsl/fsl from terminfo */
-    tsl = safe_strdup(tcaps);
-
-    tcaps = tigetstr("fsl");
-    if (tcaps && tcaps != (char *)-1 && *tcaps)
-      fsl = safe_strdup(tcaps);
-
-    return 1;
-  }
-
-  /* If XT (boolean) is set, then this terminal supports the standard escape. */
-  /* Beware: tigetflag returns -1 if XT is invalid or not a boolean. */
-#ifdef HAVE_USE_EXTENDED_NAMES
-  use_extended_names (TRUE);
-  tcapi = tigetflag("XT");
-  if (tcapi == 1)
-    return 1;
-#endif /* HAVE_USE_EXTENDED_NAMES */
-
-  /* Check term types that are known to support the standard escape without
-   * necessarily asserting it in terminfo. */
-  for (termp = known; termp; termp++)
-  {
-    if (term && *termp && mutt_strncasecmp (term, *termp, strlen(*termp)))
-      return 1;
-  }
-
-  /* not supported */
-  return 0;
-}
-
-void mutt_ts_status(char *str)
-{
-  /* If empty, do not set.  To clear, use a single space. */
-  if (str == NULL || *str == '\0')
-    return;
-  fprintf(stderr, "%s%s%s", tsl, str, fsl);
-}
-
-void mutt_ts_icon(char *str)
-{
-  /* If empty, do not set.  To clear, use a single space. */
-  if (str == NULL || *str == '\0')
-    return;
-
-  /* icon setting is not supported in terminfo, so hardcode the escape - yuck */
-  fprintf(stderr, "\033]1;%s\007", str);
-}
+extern size_t UngetCount;
 
 void index_make_entry (char *s, size_t l, MUTTMENU *menu, int num)
 {
@@ -636,13 +560,6 @@ int mutt_index_menu (void)
 	mutt_paddstr (COLS, buf);
 	NORMAL_COLOR;
 	menu->redraw &= ~REDRAW_STATUS;
-	if (option(OPTTSENABLED) && TSSupported)
-	{
-	  menu_status_line (buf, sizeof (buf), menu, NONULL (TSStatusFormat));
-	  mutt_ts_status(buf);
-	  menu_status_line (buf, sizeof (buf), menu, NONULL (TSIconFormat));
-	  mutt_ts_icon(buf);
-	}
       }
 
       menu->redraw = 0;
@@ -727,7 +644,12 @@ int mutt_index_menu (void)
 
 	if (!Context->tagged)
 	{
-	  mutt_flush_macro_to_endcond ();
+	  event_t tmp;
+	  while(UngetCount>0)
+	  {
+	    tmp=mutt_getch();
+	    if(tmp.op==OP_END_COND)break;
+	  }
 	  mutt_message  _("Nothing to do.");
 	  continue;
 	}
@@ -812,7 +734,7 @@ int mutt_index_menu (void)
 
 	CHECK_MSGCOUNT;
         CHECK_VISIBLE;
-        if (isdigit (LastKey)) mutt_unget_event (LastKey, 0);
+        if (isdigit (LastKey)) mutt_ungetch (LastKey, 0);
 	buf[0] = 0;
 	if (mutt_get_field (_("Jump to message: "), buf, sizeof (buf), 0) != 0
 	    || !buf[0])
@@ -868,8 +790,7 @@ int mutt_index_menu (void)
 	CHECK_MSGCOUNT;
         CHECK_VISIBLE;
 	CHECK_READONLY;
-        /* L10N: CHECK_ACL */
-	CHECK_ACL(M_ACL_DELETE, _("Cannot delete message(s)"));
+	CHECK_ACL(M_ACL_DELETE, _("delete message(s)"));
 
 	CHECK_ATTACH;
 	mutt_pattern_func (M_DELETE, _("Delete messages matching: "));
@@ -898,7 +819,7 @@ int mutt_index_menu (void)
 	else
 	{
 	   char buf[STRING];
-	   /* L10N: ask for a limit to apply */
+	   /* i18n: ask for a limit to apply */
 	   snprintf (buf, sizeof(buf), _("Limit: %s"),Context->pattern);
            mutt_message ("%s", buf);
 	}
@@ -1042,8 +963,7 @@ int mutt_index_menu (void)
 	CHECK_MSGCOUNT;
         CHECK_VISIBLE;
 	CHECK_READONLY;
-        /* L10N: CHECK_ACL */
-	CHECK_ACL(M_ACL_DELETE, _("Cannot undelete message(s)"));
+	CHECK_ACL(M_ACL_DELETE, _("undelete message(s)"));
 
 	if (mutt_pattern_func (M_UNDELETE, _("Undelete messages matching: ")) == 0)
 	  menu->redraw = REDRAW_INDEX | REDRAW_STATUS;
@@ -1350,8 +1270,7 @@ int mutt_index_menu (void)
 	CHECK_MSGCOUNT;
         CHECK_VISIBLE;
 	CHECK_READONLY;
-        /* L10N: CHECK_ACL */
-	CHECK_ACL(M_ACL_DELETE, _("Cannot link threads"));
+	CHECK_ACL(M_ACL_DELETE, _("link threads"));
 
         if ((Sort & SORT_MASK) != SORT_THREADS)
 	  mutt_error _("Threading is not enabled.");
@@ -1602,20 +1521,8 @@ int mutt_index_menu (void)
 	if (menu->current == -1)
 	{
 	  menu->current = menu->oldcurrent;
-	  if (op == OP_MAIN_NEXT_NEW || op == OP_MAIN_PREV_NEW)
-          {
-            if (Context->pattern)
-              mutt_error (_("No new messages in this limited view."));
-            else
-              mutt_error (_("No new messages."));
-          }
-          else
-          {
-            if (Context->pattern)
-              mutt_error (_("No unread messages in this limited view."));
-            else
-              mutt_error (_("No unread messages."));
-          }
+	  mutt_error ("%s%s.", (op == OP_MAIN_NEXT_NEW || op == OP_MAIN_PREV_NEW) ? _("No new messages") : _("No unread messages"),
+		      Context->pattern ? _(" in this limited view") : "");
 	}
 	else if (menu->menu == MENU_PAGER)
 	{
@@ -1631,8 +1538,7 @@ int mutt_index_menu (void)
 	CHECK_MSGCOUNT;
         CHECK_VISIBLE;
 	CHECK_READONLY;
-        /* L10N: CHECK_ACL */
-	CHECK_ACL(M_ACL_WRITE, _("Cannot flag message"));
+	CHECK_ACL(M_ACL_WRITE, _("flag message"));
 
         if (tag)
         {
@@ -1669,8 +1575,7 @@ int mutt_index_menu (void)
 	CHECK_MSGCOUNT;
         CHECK_VISIBLE;
 	CHECK_READONLY;
-        /* L10N: CHECK_ACL */
-	CHECK_ACL(M_ACL_SEEN, _("Cannot toggle new"));
+	CHECK_ACL(M_ACL_SEEN, _("toggle new"));
 
 	if (tag)
 	{
@@ -1924,8 +1829,7 @@ int mutt_index_menu (void)
 	CHECK_MSGCOUNT;
         CHECK_VISIBLE;
 	CHECK_READONLY;
-        /* L10N: CHECK_ACL */
-	CHECK_ACL(M_ACL_DELETE, _("Cannot delete message"));
+	CHECK_ACL(M_ACL_DELETE, _("delete message"));
 
 	if (tag)
 	{
@@ -1966,8 +1870,7 @@ int mutt_index_menu (void)
 	CHECK_MSGCOUNT;
         CHECK_VISIBLE;
 	CHECK_READONLY;
-        /* L10N: CHECK_ACL */
-	CHECK_ACL(M_ACL_DELETE, _("Cannot delete message(s)"));
+	CHECK_ACL(M_ACL_DELETE, _("delete message(s)"));
 
 	rc = mutt_thread_set_flag (CURHDR, M_DELETE, 1,
 				   op == OP_DELETE_THREAD ? 0 : 1);
@@ -2008,8 +1911,7 @@ int mutt_index_menu (void)
         CHECK_VISIBLE;
 	CHECK_READONLY;
 	CHECK_ATTACH;
-        /* L10N: CHECK_ACL */
-	CHECK_ACL(M_ACL_INSERT, _("Cannot edit message"));
+	CHECK_ACL(M_ACL_INSERT, _("edit message"));
 
 	if (option (OPTPGPAUTODEC) && (tag || !(CURHDR->security & PGP_TRADITIONAL_CHECKED)))
 	  mutt_check_traditional_pgp (tag ? NULL : CURHDR, &menu->redraw);
@@ -2140,8 +2042,7 @@ int mutt_index_menu (void)
 	CHECK_MSGCOUNT;
 	CHECK_VISIBLE;
 	CHECK_READONLY;
-        /* L10N: CHECK_ACL */
-	CHECK_ACL(M_ACL_SEEN, _("Cannot mark message(s) as read"));
+	CHECK_ACL(M_ACL_SEEN, _("mark message(s) as read"));
 
 	rc = mutt_thread_set_flag (CURHDR, M_READ, 1,
 				   op == OP_MAIN_READ_THREAD ? 0 : 1);
@@ -2236,8 +2137,7 @@ int mutt_index_menu (void)
 	CHECK_MSGCOUNT;
         CHECK_VISIBLE;
 	CHECK_READONLY;
-        /* L10N: CHECK_ACL */
-	CHECK_ACL(M_ACL_DELETE, _("Cannot undelete message"));
+	CHECK_ACL(M_ACL_DELETE, _("undelete message"));
 
 	if (tag)
 	{
@@ -2264,8 +2164,7 @@ int mutt_index_menu (void)
 	CHECK_MSGCOUNT;
         CHECK_VISIBLE;
 	CHECK_READONLY;
-        /* L10N: CHECK_ACL */
-	CHECK_ACL(M_ACL_DELETE, _("Cannot undelete message(s)"));
+	CHECK_ACL(M_ACL_DELETE, _("undelete message(s)"));
 
 	rc = mutt_thread_set_flag (CURHDR, M_DELETE, 0,
 				   op == OP_UNDELETE_THREAD ? 0 : 1);

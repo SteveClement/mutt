@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1996-2002,2010,2012-2013 Michael R. Elkins <me@mutt.org>
+ * Copyright (C) 1996-2002 Michael R. Elkins <me@mutt.org>
  * Copyright (C) 2004 g10 Code GmbH
  * 
  *     This program is free software; you can redistribute it and/or modify
@@ -48,20 +48,9 @@
  * is impossible to unget function keys in SLang, so roll our own input
  * buffering routines.
  */
-
-/* These are used for macros and exec/push commands.
- * They can be temporarily ignored by setting OPTIGNOREMACROEVENTS
- */
-static size_t MacroBufferCount = 0;
-static size_t MacroBufferLen = 0;
-static event_t *MacroEvents;
-
-/* These are used in all other "normal" situations, and are not
- * ignored when setting OPTIGNOREMACROEVENTS
- */
-static size_t UngetCount = 0;
-static size_t UngetLen = 0;
-static event_t *UngetKeyEvents;
+size_t UngetCount = 0;
+static size_t UngetBufLen = 0;
+static event_t *KeyEvent;
 
 void mutt_refresh (void)
 {
@@ -94,11 +83,8 @@ event_t mutt_getch (void)
   event_t err = {-1, OP_NULL }, ret;
   event_t timeout = {-2, OP_NULL};
 
-  if (UngetCount)
-    return (UngetKeyEvents[--UngetCount]);
-
-  if (!option(OPTIGNOREMACROEVENTS) && MacroBufferCount)
-    return (MacroEvents[--MacroBufferCount]);
+  if (!option(OPTUNBUFFEREDINPUT) && UngetCount)
+    return (KeyEvent[--UngetCount]);
 
   SigInt = 0;
 
@@ -132,7 +118,7 @@ event_t mutt_getch (void)
   {
     /* send ALT-x as ESC-x */
     ch &= ~0x80;
-    mutt_unget_event (ch, 0);
+    mutt_ungetch (ch, 0);
     ret.ch = '\033';
     ret.op = 0;
     return ret;
@@ -153,9 +139,7 @@ int _mutt_get_field (const char *field, char *buf, size_t buflen, int complete, 
   do
   {
     CLEARLINE (LINES-1);
-    SETCOLOR (MT_COLOR_PROMPT);
     addstr ((char *)field); /* cast to get around bad prototypes */
-    NORMAL_COLOR;
     mutt_refresh ();
     getyx (stdscr, y, x);
     ret = _mutt_enter_string (buf, buflen, y, x, complete, multiple, files, numfiles, es);
@@ -171,9 +155,9 @@ int mutt_get_field_unbuffered (char *msg, char *buf, size_t buflen, int flags)
 {
   int rc;
 
-  set_option (OPTIGNOREMACROEVENTS);
+  set_option (OPTUNBUFFEREDINPUT);
   rc = mutt_get_field (msg, buf, buflen, flags);
-  unset_option (OPTIGNOREMACROEVENTS);
+  unset_option (OPTUNBUFFEREDINPUT);
 
   return (rc);
 }
@@ -241,10 +225,8 @@ int mutt_yesorno (const char *msg, int def)
   answer_string_len = mutt_strwidth (answer_string);
   /* maxlen here is sort of arbitrary, so pick a reasonable upper bound */
   msglen = mutt_wstr_trunc (msg, 4*COLS, COLS - answer_string_len, NULL);
-  SETCOLOR (MT_COLOR_PROMPT);
   addnstr (msg, msglen);
   addstr (answer_string);
-  NORMAL_COLOR;
   FREE (&answer_string);
 
   FOREVER
@@ -581,10 +563,8 @@ int _mutt_enter_fname (const char *prompt, char *buf, size_t blen, int *redraw, 
 {
   event_t ch;
 
-  SETCOLOR (MT_COLOR_PROMPT);
   mvaddstr (LINES-1, 0, (char *) prompt);
   addstr (_(" ('?' for list): "));
-  NORMAL_COLOR;
   if (buf[0])
     addstr (buf);
   clrtoeol ();
@@ -609,7 +589,7 @@ int _mutt_enter_fname (const char *prompt, char *buf, size_t blen, int *redraw, 
     char *pc = safe_malloc (mutt_strlen (prompt) + 3);
 
     sprintf (pc, "%s: ", prompt);	/* __SPRINTF_CHECKED__ */
-    mutt_unget_event (ch.op ? 0 : ch.ch, ch.op ? ch.op : 0);
+    mutt_ungetch (ch.op ? 0 : ch.ch, ch.op ? ch.op : 0);
     if (_mutt_get_field (pc, buf, blen, (buffy ? M_EFILE : M_FILE) | M_CLEAR, multiple, files, numfiles)
 	!= 0)
       buf[0] = 0;
@@ -620,60 +600,22 @@ int _mutt_enter_fname (const char *prompt, char *buf, size_t blen, int *redraw, 
   return 0;
 }
 
-void mutt_unget_event (int ch, int op)
+void mutt_ungetch (int ch, int op)
 {
   event_t tmp;
 
   tmp.ch = ch;
   tmp.op = op;
 
-  if (UngetCount >= UngetLen)
-    safe_realloc (&UngetKeyEvents, (UngetLen += 16) * sizeof(event_t));
+  if (UngetCount >= UngetBufLen)
+    safe_realloc (&KeyEvent, (UngetBufLen += 128) * sizeof(event_t));
 
-  UngetKeyEvents[UngetCount++] = tmp;
-}
-
-void mutt_unget_string (char *s)
-{
-  char *p = s + mutt_strlen (s) - 1;
-
-  while (p >= s)
-  {
-    mutt_unget_event ((unsigned char)*p--, 0);
-  }
-}
-
-/*
- * Adds the ch/op to the macro buffer.
- * This should be used for macros, push, and exec commands only.
- */
-void mutt_push_macro_event (int ch, int op)
-{
-  event_t tmp;
-
-  tmp.ch = ch;
-  tmp.op = op;
-
-  if (MacroBufferCount >= MacroBufferLen)
-    safe_realloc (&MacroEvents, (MacroBufferLen += 128) * sizeof(event_t));
-
-  MacroEvents[MacroBufferCount++] = tmp;
-}
-
-void mutt_flush_macro_to_endcond (void)
-{
-  UngetCount = 0;
-  while (MacroBufferCount > 0)
-  {
-    if (MacroEvents[--MacroBufferCount].op == OP_END_COND)
-      return;
-  }
+  KeyEvent[UngetCount++] = tmp;
 }
 
 void mutt_flushinp (void)
 {
   UngetCount = 0;
-  MacroBufferCount = 0;
   flushinp ();
 }
 
@@ -705,16 +647,13 @@ int mutt_multi_choice (char *prompt, char *letters)
   int choice;
   char *p;
 
-  SETCOLOR (MT_COLOR_PROMPT);
   mvaddstr (LINES - 1, 0, prompt);
-  NORMAL_COLOR;
   clrtoeol ();
   FOREVER
   {
     mutt_refresh ();
     ch  = mutt_getch ();
-    /* (ch.ch == 0) is technically possible.  Treat the same as < 0 (abort) */
-    if (ch.ch <= 0 || CI_is_return (ch.ch))
+    if (ch.ch < 0 || CI_is_return (ch.ch))
     {
       choice = -1;
       break;
@@ -1011,7 +950,7 @@ int mutt_charlen (const char *s, int *width)
 
 /*
  * mutt_strwidth is like mutt_strlen except that it returns the width
- * referring to the number of character cells.
+ * refering to the number of characters cells.
  */
 
 int mutt_strwidth (const char *s)

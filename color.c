@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1996-2002,2012 Michael R. Elkins <me@mutt.org>
+ * Copyright (C) 1996-2002 Michael R. Elkins <me@mutt.org>
  * 
  *     This program is free software; you can redistribute it and/or modify
  *     it under the terms of the GNU General Public License as published by
@@ -93,7 +93,6 @@ static const struct mapping_t Fields[] =
   { "bold",		MT_COLOR_BOLD },
   { "underline",	MT_COLOR_UNDERLINE },
   { "index",		MT_COLOR_INDEX },
-  { "prompt",		MT_COLOR_PROMPT },
   { NULL,		0 }
 };
 
@@ -306,14 +305,13 @@ void mutt_free_color (int fg, int bg)
 #ifdef HAVE_COLOR
 
 static int
-parse_color_name (const char *s, int *col, int *attr, int is_fg, BUFFER *err)
+parse_color_name (const char *s, int *col, int *attr, int brite, BUFFER *err)
 {
   char *eptr;
-  int is_bright = 0;
 
   if (ascii_strncasecmp (s, "bright", 6) == 0)
   {
-    is_bright = 1;
+    *attr |= brite;
     s += 6;
   }
 
@@ -333,24 +331,6 @@ parse_color_name (const char *s, int *col, int *attr, int is_fg, BUFFER *err)
   {
     snprintf (err->data, err->dsize, _("%s: no such color"), s);
     return (-1);
-  }
-
-  if (is_bright)
-  {
-    if (is_fg)
-    {
-      *attr |= A_BOLD;
-    }
-    else if (COLORS < 16)
-    {
-      /* A_BLINK turns the background color brite on some terms */
-      *attr |= A_BLINK;
-    }
-    else
-    {
-      /* Advance the color by 8 to get the bright version */
-      *col += 8;
-    }
   }
 
   return 0;
@@ -634,7 +614,7 @@ parse_color_pair(BUFFER *buf, BUFFER *s, int *fg, int *bg, int *attr, BUFFER *er
 
   mutt_extract_token (buf, s, 0);
 
-  if (parse_color_name (buf->data, fg, attr, 1, err) != 0)
+  if (parse_color_name (buf->data, fg, attr, A_BOLD, err) != 0)
     return (-1);
 
   if (! MoreArgs (s))
@@ -645,7 +625,7 @@ parse_color_pair(BUFFER *buf, BUFFER *s, int *fg, int *bg, int *attr, BUFFER *er
   
   mutt_extract_token (buf, s, 0);
 
-  if (parse_color_name (buf->data, bg, attr, 0, err) != 0)
+  if (parse_color_name (buf->data, bg, attr, A_BLINK, err) != 0)
     return (-1);
   
   return 0;

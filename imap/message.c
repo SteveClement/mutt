@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1996-1999 Brandon Long <blong@fiction.net>
+ * Copyright (C) 1996-9 Brandon Long <blong@fiction.net>
  * Copyright (C) 1999-2009 Brendan Cully <brendan@kublai.com>
  *
  *     This program is free software; you can redistribute it and/or modify
@@ -60,6 +60,7 @@ static char* msg_parse_flags (IMAP_HEADER* h, char* s);
 int imap_read_headers (IMAP_DATA* idata, int msgbegin, int msgend)
 {
   CONTEXT* ctx;
+  char buf[LONG_STRING];
   char *hdrreq = NULL;
   FILE *fp;
   char tempfile[_POSIX_PATH_MAX];
@@ -74,7 +75,6 @@ int imap_read_headers (IMAP_DATA* idata, int msgbegin, int msgend)
   int retval = -1;
 
 #if USE_HCACHE
-  char buf[LONG_STRING];
   unsigned int *uid_validity = NULL;
   unsigned int *puidnext = NULL;
   unsigned int uidnext = 0;
@@ -137,8 +137,6 @@ int imap_read_headers (IMAP_DATA* idata, int msgbegin, int msgend)
   }
   if (evalhc)
   {
-    /* L10N:
-       Comparing the cached data with the IMAP server's data */
     mutt_progress_init (&progress, _("Evaluating cache..."),
 			M_PROGRESS_MSG, ReadInc, msgend + 1);
 
@@ -549,7 +547,7 @@ int imap_fetch_message (MESSAGE *msg, CONTEXT *ctx, int msgno)
    * IMAP server doesn't know the message has been \Seen. So we capture
    * the server's notion of 'read' and if it differs from the message info
    * picked up in mutt_read_rfc822_header, we mark the message (and context
-   * changed). Another possibility: ignore Status on IMAP?*/
+   * changed). Another possiblity: ignore Status on IMAP?*/
   read = h->read;
   newenv = mutt_read_rfc822_header (msg->fp, h, 0, 0);
   mutt_merge_envelopes(h->env, &newenv);
@@ -603,7 +601,6 @@ int imap_append_message (CONTEXT *ctx, MESSAGE *msg)
   char mbox[LONG_STRING];
   char mailbox[LONG_STRING];
   char internaldate[IMAP_DATELEN];
-  char imap_flags[SHORT_STRING];
   size_t len;
   progress_t progressbar;
   size_t sent;
@@ -644,21 +641,14 @@ int imap_append_message (CONTEXT *ctx, MESSAGE *msg)
   mutt_progress_init (&progressbar, _("Uploading message..."),
 		      M_PROGRESS_SIZE, NetInc, len);
 
-  imap_munge_mbox_name (idata, mbox, sizeof (mbox), mailbox);
+  imap_munge_mbox_name (mbox, sizeof (mbox), mailbox);
   imap_make_date (internaldate, msg->received);
-
-  imap_flags[0] = imap_flags[1] = 0;
-  if (msg->flags.read)
-    safe_strcat (imap_flags, sizeof (imap_flags), " \\Seen");
-  if (msg->flags.replied)
-    safe_strcat (imap_flags, sizeof (imap_flags), " \\Answered");
-  if (msg->flags.flagged)
-    safe_strcat (imap_flags, sizeof (imap_flags), " \\Flagged");
-  if (msg->flags.draft)
-    safe_strcat (imap_flags, sizeof (imap_flags), " \\Draft");
-
-  snprintf (buf, sizeof (buf), "APPEND %s (%s) \"%s\" {%lu}", mbox,
-            imap_flags + 1,
+  snprintf (buf, sizeof (buf), "APPEND %s (%s%s%s%s%s) \"%s\" {%lu}", mbox,
+	    msg->flags.read    ? "\\Seen"      : "",
+	    msg->flags.read && (msg->flags.replied || msg->flags.flagged) ? " " : "",
+	    msg->flags.replied ? "\\Answered" : "",
+	    msg->flags.replied && msg->flags.flagged ? " " : "",
+	    msg->flags.flagged ? "\\Flagged"  : "",
 	    internaldate,
 	    (unsigned long) len);
 
@@ -775,7 +765,7 @@ int imap_copy_messages (CONTEXT* ctx, HEADER* h, char* dest, int delete)
   imap_fix_path (idata, mx.mbox, mbox, sizeof (mbox));
   if (!*mbox)
     strfcpy (mbox, "INBOX", sizeof (mbox));
-  imap_munge_mbox_name (idata, mmbox, sizeof (mmbox), mbox);
+  imap_munge_mbox_name (mmbox, sizeof (mmbox), mbox);
 
   /* loop in case of TRYCREATE */
   do

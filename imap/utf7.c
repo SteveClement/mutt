@@ -252,40 +252,30 @@ static char *utf8_to_utf7 (const char *u8, size_t u8len, char **u7,
   return 0;
 }
 
-void imap_utf_encode (IMAP_DATA *idata, char **s)
+void imap_utf7_encode (char **s)
 {
   if (Charset)
   {
     char *t = safe_strdup (*s);
-    if (t && !mutt_convert_string (&t, Charset, "utf-8", 0))
+    if (!mutt_convert_string (&t, Charset, "utf-8", 0))
     {
+      char *u7 = utf8_to_utf7 (t, strlen (t), NULL, 0);
       FREE (s);		/* __FREE_CHECKED__ */
-      if (idata->unicode)
-        *s = safe_strdup (t);
-      else
-        *s = utf8_to_utf7 (t, strlen (t), NULL, 0);
+      *s = u7;
     }
     FREE (&t);
   }
 }
 
-void imap_utf_decode (IMAP_DATA *idata, char **s)
+void imap_utf7_decode (char **s)
 {
-  char *t;
-
   if (Charset)
   {
-    if (idata->unicode)
-      t = safe_strdup (*s);
-    else
-      t = utf7_to_utf8 (*s, strlen (*s), 0, 0);
-
+    char *t = utf7_to_utf8 (*s, strlen (*s), 0, 0);
     if (t && !mutt_convert_string (&t, "utf-8", Charset, 0))
     {
       FREE (s);		/* __FREE_CHECKED__ */
       *s = t;
     }
-    else
-      FREE (&t);
   }
 }

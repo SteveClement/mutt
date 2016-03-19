@@ -140,13 +140,6 @@ int mutt_ssl_starttls (CONNECTION* conn)
 
   ssl_get_client_cert(ssldata, conn);
 
-  if (SslCiphers) {
-    if (!SSL_CTX_set_cipher_list (ssldata->ctx, SslCiphers)) {
-      dprint (1, (debugfile, "mutt_ssl_starttls: Could not select preferred ciphers\n"));
-      goto bail_ctx;
-    }
-  }
-
   if (! (ssldata->ssl = SSL_new (ssldata->ctx)))
   {
     dprint (1, (debugfile, "mutt_ssl_starttls: Error allocating SSL\n"));
@@ -273,7 +266,7 @@ static int add_entropy (const char *file)
 
 static int ssl_socket_open_err (CONNECTION *conn)
 {
-  mutt_error (_("SSL disabled due to the lack of entropy"));
+  mutt_error (_("SSL disabled due the lack of entropy"));
   mutt_sleep (2);
   return -1;
 }
@@ -367,10 +360,6 @@ static int ssl_socket_open (CONNECTION * conn)
 
   ssl_get_client_cert(data, conn);
 
-  if (SslCiphers) {
-    SSL_CTX_set_cipher_list (data->ctx, SslCiphers);
-  }
-
   data->ssl = SSL_new (data->ctx);
   SSL_set_fd (data->ssl, conn->fd);
 
@@ -432,10 +421,6 @@ static int ssl_negotiate (CONNECTION *conn, sslsockdata* ssldata)
   if (!ssl_check_certificate (conn, ssldata))
     return -1;
 
-  /* L10N:
-     %1$s is version (e.g. "TLSv1.2")
-     %2$s is cipher_version (e.g. "TLSv1/SSLv3")
-     %3$s is cipher_name (e.g. "ECDHE-RSA-AES128-GCM-SHA256") */
   mutt_message (_("%s connection using %s (%s)"),
     SSL_get_version(ssldata->ssl), SSL_get_cipher_version (ssldata->ssl), SSL_get_cipher_name (ssldata->ssl));
   mutt_sleep (0);
@@ -977,7 +962,7 @@ static int interactive_check_cert (X509 *cert, int idx, int len)
   char helpstr[LONG_STRING];
   char buf[STRING];
   char title[STRING];
-  MUTTMENU *menu = mutt_new_menu (MENU_GENERIC);
+  MUTTMENU *menu = mutt_new_menu (-1);
   int done, row, i;
   FILE *fp;
   char *name = NULL, *c;
@@ -1051,7 +1036,7 @@ static int interactive_check_cert (X509 *cert, int idx, int len)
   menu->help = helpstr;
 
   done = 0;
-  set_option(OPTIGNOREMACROEVENTS);
+  set_option(OPTUNBUFFEREDINPUT);
   while (!done)
   {
     switch (mutt_menuLoop (menu))
@@ -1086,7 +1071,7 @@ static int interactive_check_cert (X509 *cert, int idx, int len)
         break;
     }
   }
-  unset_option(OPTIGNOREMACROEVENTS);
+  unset_option(OPTUNBUFFEREDINPUT);
   mutt_menuDestroy (&menu);
   dprint (2, (debugfile, "ssl interactive_check_cert: done=%d\n", done));
   return (done == 2);
